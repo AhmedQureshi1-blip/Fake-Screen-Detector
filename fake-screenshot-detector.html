@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PayGuard — Screenshot Authenticator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #060a0f;
+    --panel: #0d1420;
+    --panel2: #111a28;
+    --border: #1e2d42;
+    --accent: #00e5ff;
+    --accent2: #ff3d71;
+    --accent3: #00ff9d;
+    --warn: #ffb800;
+    --text: #e0eaf5;
+    --text-dim: #5a7a9a;
+    --text-muted: #2a4060;
+    --font-mono: 'Space Mono', monospace;
+    --font-display: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridDrift 20s linear infinite;
+  }
+  @keyframes gridDrift { 0%{transform:translate(0,0)} 100%{transform:translate(40px,40px)} }
+
+  /* Glow orbs */
+  .orb { position:fixed; border-radius:50%; filter:blur(80px); opacity:0.08; pointer-events:none; z-index:0; }
+  .orb1 { width:500px; height:500px; background:var(--accent); top:-100px; left:-100px; animation:float1 12s ease-in-out infinite; }
+  .orb2 { width:400px; height:400px; background:var(--accent2); bottom:-80px; right:-80px; animation:float2 15s ease-in-out infinite; }
+  @keyframes float1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(40px,30px)} }
+  @keyframes float2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-30px,-40px)} }
+
+  .container { position:relative; z-index:1; max-width:1000px; margin:0 auto; padding:30px 20px 60px; }
+
+  /* Header */
+  .header { text-align:center; margin-bottom:40px; }
+  .header .logo-line {
+    display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:8px;
+  }
+  .logo-icon {
+    width:40px; height:40px;
+    background:linear-gradient(135deg,var(--accent),var(--accent3));
+    border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:800; color:#000;
+    box-shadow: 0 0 20px rgba(0,229,255,0.4);
+  }
+  .logo-text { font-size:28px; font-weight:800; letter-spacing:2px; }
+  .logo-text span { color:var(--accent); }
+  .tagline {
+    font-family:var(--font-mono); font-size:11px; color:var(--text-dim);
+    letter-spacing:3px; text-transform:uppercase; margin-bottom:6px;
+  }
+  .status-bar {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(0,229,255,0.05); border:1px solid rgba(0,229,255,0.15);
+    border-radius:20px; padding:5px 14px; font-family:var(--font-mono); font-size:10px;
+    color:var(--accent); letter-spacing:1px;
+  }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--accent3); animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  /* Main panels */
+  .main-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media(max-width:700px){ .main-grid{grid-template-columns:1fr} }
+
+  .panel {
+    background:var(--panel); border:1px solid var(--border); border-radius:16px;
+    overflow:hidden; position:relative;
+  }
+  .panel-header {
+    display:flex; align-items:center; gap:10px;
+    padding:14px 18px; border-bottom:1px solid var(--border);
+    background:var(--panel2);
+  }
+  .panel-title { font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim); }
+  .panel-icon { font-size:14px; }
+
+  /* Upload area */
+  .upload-zone {
+    min-height:280px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    padding:30px 20px; text-align:center; cursor:pointer;
+    border:2px dashed transparent;
+    background:
+      linear-gradient(var(--panel),var(--panel)) padding-box,
+      linear-gradient(135deg,rgba(0,229,255,0.2),rgba(0,255,157,0.1),rgba(0,229,255,0.2)) border-box;
+    transition:all 0.3s;
+    position:relative; overflow:hidden;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    background:
+      linear-gradient(rgba(0,229,255,0.04),rgba(0,229,255,0.04)) padding-box,
+      linear-gradient(135deg,rgba(0,229,255,0.5),rgba(0,255,157,0.3),rgba(0,229,255,0.5)) border-box;
+  }
+  .upload-icon-wrap {
+    width:72px; height:72px; border-radius:50%;
+    background:linear-gradient(135deg,rgba(0,229,255,0.1),rgba(0,255,157,0.05));
+    border:1px solid rgba(0,229,255,0.2);
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:16px; position:relative;
+  }
+  .upload-icon-wrap::after {
+    content:''; position:absolute; inset:-4px; border-radius:50%;
+    border:1px solid rgba(0,229,255,0.1);
+    animation:ringPulse 3s ease-in-out infinite;
+  }
+  @keyframes ringPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.1);opacity:0.3} }
+  .upload-icon { font-size:28px; }
+  .upload-title { font-size:15px; font-weight:700; margin-bottom:6px; color:var(--text); }
+  .upload-sub { font-size:11px; color:var(--text-dim); font-family:var(--font-mono); line-height:1.6; }
+  .upload-formats { margin-top:12px; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  .fmt-tag {
+    background:rgba(0,229,255,0.05); border:1px solid rgba(0,229,255,0.15);
+    border-radius:4px; padding:2px 8px; font-family:var(--font-mono); font-size:9px;
+    color:var(--accent); letter-spacing:1px;
+  }
+  #fileInput { display:none; }
+
+  /* Preview */
+  .preview-wrap {
+    padding:16px; display:none; position:relative;
+  }
+  .preview-img {
+    width:100%; border-radius:10px; display:block;
+    border:1px solid var(--border); max-height:340px; object-fit:contain;
+    background:#08121d;
+  }
+  .preview-overlay {
+    position:absolute; top:24px; right:24px;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .preview-meta {
+    background:rgba(6,10,15,0.85); backdrop-filter:blur(8px);
+    border:1px solid var(--border); border-radius:8px;
+    padding:8px 12px; font-family:var(--font-mono); font-size:10px; color:var(--text-dim);
+  }
+  .preview-meta span { color:var(--accent); }
+
+  /* Scan button */
+  .btn-scan {
+    width:100%; padding:16px;
+    background:linear-gradient(135deg, var(--accent), var(--accent3));
+    color:#000; font-family:var(--font-display); font-size:13px; font-weight:800;
+    letter-spacing:3px; text-transform:uppercase; border:none; cursor:pointer;
+    transition:all 0.3s; position:relative; overflow:hidden;
+  }
+  .btn-scan::before {
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(135deg,transparent,rgba(255,255,255,0.15),transparent);
+    transform:translateX(-100%); transition:transform 0.4s;
+  }
+  .btn-scan:hover::before { transform:translateX(100%); }
+  .btn-scan:hover { box-shadow:0 0 30px rgba(0,229,255,0.3); }
+  .btn-scan:disabled { opacity:0.4; cursor:not-allowed; }
+  .btn-scan .btn-inner { display:flex; align-items:center; justify-content:center; gap:10px; }
+
+  /* Result panel */
+  .result-panel { grid-column: 1 / -1; display:none; }
+
+  /* Verdict display */
+  .verdict-display {
+    padding:30px; text-align:center;
+    border-bottom:1px solid var(--border);
+    position:relative; overflow:hidden;
+  }
+  .verdict-bg-glow {
+    position:absolute; inset:0; opacity:0.05; transition:background 0.5s;
+  }
+  .verdict-badge {
+    display:inline-flex; align-items:center; gap:12px;
+    padding:12px 28px; border-radius:40px; margin-bottom:16px;
+    font-size:18px; font-weight:800; letter-spacing:3px; text-transform:uppercase;
+    border:2px solid; position:relative;
+  }
+  .verdict-badge.authentic {
+    color:var(--accent3); border-color:var(--accent3);
+    background:rgba(0,255,157,0.08);
+    box-shadow:0 0 40px rgba(0,255,157,0.2);
+  }
+  .verdict-badge.fake {
+    color:var(--accent2); border-color:var(--accent2);
+    background:rgba(255,61,113,0.08);
+    box-shadow:0 0 40px rgba(255,61,113,0.2);
+  }
+  .verdict-badge.suspicious {
+    color:var(--warn); border-color:var(--warn);
+    background:rgba(255,184,0,0.08);
+    box-shadow:0 0 40px rgba(255,184,0,0.2);
+  }
+  .verdict-icon { font-size:24px; }
+  .confidence-row { display:flex; align-items:center; justify-content:center; gap:16px; margin-top:12px; }
+  .conf-label { font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; }
+  .conf-bar-wrap { width:200px; height:6px; background:rgba(255,255,255,0.05); border-radius:3px; overflow:hidden; }
+  .conf-bar { height:100%; border-radius:3px; transition:width 1s cubic-bezier(.4,0,.2,1); }
+  .conf-bar.authentic { background:linear-gradient(90deg,var(--accent3),var(--accent)); }
+  .conf-bar.fake { background:linear-gradient(90deg,var(--accent2),#ff007a); }
+  .conf-bar.suspicious { background:linear-gradient(90deg,var(--warn),#ff9500); }
+  .conf-value { font-family:var(--font-mono); font-size:12px; font-weight:700; }
+  .conf-value.authentic { color:var(--accent3); }
+  .conf-value.fake { color:var(--accent2); }
+  .conf-value.suspicious { color:var(--warn); }
+
+  /* Analysis details */
+  .analysis-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1px; background:var(--border); }
+  .analysis-cell {
+    background:var(--panel); padding:18px 20px;
+    transition:background 0.2s;
+  }
+  .analysis-cell:hover { background:var(--panel2); }
+  .cell-label { font-family:var(--font-mono); font-size:9px; color:var(--text-muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+  .cell-value { font-size:13px; font-weight:700; color:var(--text); line-height:1.4; }
+  .cell-status { display:inline-flex; align-items:center; gap:6px; }
+  .cell-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .dot-ok { background:var(--accent3); box-shadow:0 0 8px var(--accent3); }
+  .dot-warn { background:var(--warn); box-shadow:0 0 8px var(--warn); }
+  .dot-bad { background:var(--accent2); box-shadow:0 0 8px var(--accent2); }
+  .dot-neutral { background:var(--text-dim); }
+
+  /* Red flags & findings */
+  .findings-section { padding:20px; border-top:1px solid var(--border); }
+  .section-title {
+    font-family:var(--font-mono); font-size:10px; color:var(--text-dim);
+    letter-spacing:3px; text-transform:uppercase; margin-bottom:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+  .flags-list { display:flex; flex-direction:column; gap:8px; }
+  .flag-item {
+    display:flex; align-items:flex-start; gap:12px;
+    padding:12px 14px; border-radius:8px; border:1px solid;
+    font-size:12px; line-height:1.5;
+  }
+  .flag-item.red { border-color:rgba(255,61,113,0.25); background:rgba(255,61,113,0.05); color:#ffb3c4; }
+  .flag-item.yellow { border-color:rgba(255,184,0,0.25); background:rgba(255,184,0,0.05); color:#ffe299; }
+  .flag-item.green { border-color:rgba(0,255,157,0.2); background:rgba(0,255,157,0.04); color:#99ffe0; }
+  .flag-icon { font-size:14px; flex-shrink:0; margin-top:1px; }
+  .flag-text { flex:1; }
+  .flag-label { font-weight:700; display:block; margin-bottom:2px; }
+
+  /* Summary box */
+  .summary-box {
+    margin:0 20px 20px; padding:16px 18px;
+    background:var(--panel2); border:1px solid var(--border); border-radius:10px;
+    font-size:12px; line-height:1.7; color:#a0bcd5;
+    font-family:var(--font-mono);
+  }
+  .summary-box strong { color:var(--text); font-weight:700; }
+
+  /* Loading animation */
+  .loading-overlay {
+    display:none; position:fixed; inset:0; z-index:100;
+    background:rgba(6,10,15,0.9); backdrop-filter:blur(12px);
+    flex-direction:column; align-items:center; justify-content:center; gap:20px;
+  }
+  .loading-overlay.active { display:flex; }
+  .scanner-ring {
+    width:120px; height:120px; position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .ring {
+    position:absolute; border-radius:50%; border:2px solid transparent;
+  }
+  .ring1 {
+    inset:0; border-top-color:var(--accent); border-right-color:var(--accent);
+    animation:spin 1.2s linear infinite;
+  }
+  .ring2 {
+    inset:12px; border-bottom-color:var(--accent3); border-left-color:var(--accent3);
+    animation:spin 0.8s linear infinite reverse;
+  }
+  .ring3 {
+    inset:24px; border-top-color:rgba(0,229,255,0.3);
+    animation:spin 2s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .scan-icon { font-size:24px; z-index:1; }
+  .loading-text { font-family:var(--font-mono); font-size:12px; color:var(--accent); letter-spacing:3px; text-transform:uppercase; }
+  .loading-steps { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .step-item {
+    font-family:var(--font-mono); font-size:10px; color:var(--text-muted);
+    letter-spacing:1px; display:flex; align-items:center; gap:8px;
+    transition:color 0.4s;
+  }
+  .step-item.active { color:var(--accent3); }
+  .step-item.done { color:var(--text-dim); text-decoration:line-through; }
+  .step-arrow { opacity:0; transition:opacity 0.3s; }
+  .step-item.active .step-arrow { opacity:1; }
+
+  /* Reset btn */
+  .btn-reset {
+    margin:0 20px 20px; padding:10px 20px;
+    background:transparent; border:1px solid var(--border);
+    color:var(--text-dim); font-family:var(--font-mono); font-size:10px;
+    letter-spacing:2px; text-transform:uppercase; cursor:pointer;
+    border-radius:6px; transition:all 0.2s;
+  }
+  .btn-reset:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* Error */
+  .error-box {
+    margin:20px; padding:16px; border-radius:10px;
+    background:rgba(255,61,113,0.08); border:1px solid rgba(255,61,113,0.3);
+    color:#ffb3c4; font-family:var(--font-mono); font-size:11px; line-height:1.6;
+    display:none;
+  }
+  .error-box strong { display:block; margin-bottom:4px; color:var(--accent2); }
+
+  /* Scan line effect */
+  .scan-line-effect {
+    position:absolute; top:0; left:0; right:0; height:2px;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);
+    animation:scanLine 2.5s ease-in-out infinite;
+    opacity:0; pointer-events:none;
+  }
+  .scanning .scan-line-effect { opacity:0.7; }
+  @keyframes scanLine { 0%{top:0;opacity:0} 5%{opacity:0.7} 95%{opacity:0.7} 100%{top:100%;opacity:0} }
+
+  /* Tooltip */
+  [data-tip] { position:relative; cursor:help; }
+  [data-tip]::after {
+    content:attr(data-tip);
+    position:absolute; bottom:calc(100%+6px); left:50%; transform:translateX(-50%);
+    background:var(--panel2); border:1px solid var(--border); border-radius:6px;
+    padding:6px 10px; font-size:10px; white-space:nowrap; color:var(--text-dim);
+    opacity:0; pointer-events:none; transition:opacity 0.2s; z-index:10;
+    font-family:var(--font-mono);
+  }
+  [data-tip]:hover::after { opacity:1; }
+
+  /* History sidebar feel */
+  .info-strip {
+    display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+    padding:12px 20px; border-bottom:1px solid var(--border);
+    background:rgba(0,229,255,0.02);
+  }
+  .info-item { display:flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:10px; color:var(--text-dim); }
+  .info-item span { color:var(--accent); }
+
+  /* Highlight on important details */
+  .amount-highlight { color:var(--accent3); font-weight:800; font-size:16px; }
+  .date-highlight { color:var(--warn); }
+
+  .powered-bar {
+    text-align:center; padding:16px;
+    font-family:var(--font-mono); font-size:9px; color:var(--text-muted);
+    letter-spacing:2px; border-top:1px solid var(--border);
+  }
+  .powered-bar em { color:var(--accent); font-style:normal; }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="scanner-ring">
+    <div class="ring ring1"></div>
+    <div class="ring ring2"></div>
+    <div class="ring ring3"></div>
+    <div class="scan-icon">🔬</div>
+  </div>
+  <div class="loading-text">Analyzing Screenshot</div>
+  <div class="loading-steps">
+    <div class="step-item" id="step1"><span class="step-arrow">▶</span> Extracting visual metadata</div>
+    <div class="step-item" id="step2"><span class="step-arrow">▶</span> Reading payment details</div>
+    <div class="step-item" id="step3"><span class="step-arrow">▶</span> Detecting tampering signals</div>
+    <div class="step-item" id="step4"><span class="step-arrow">▶</span> Cross-referencing patterns</div>
+    <div class="step-item" id="step5"><span class="step-arrow">▶</span> Generating verdict</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-line">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">Pay<span>Guard</span></div>
+    </div>
+    <div class="tagline">University Café — Screenshot Authentication System</div>
+    <div style="margin-top:10px;">
+      <div class="status-bar">
+        <div class="status-dot"></div>
+        AI ANALYSIS ENGINE ONLINE
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- UPLOAD PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-icon">📤</span>
+        <span class="panel-title">Upload Payment Screenshot</span>
+      </div>
+
+      <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
+        <div class="scan-line-effect"></div>
+        <div class="upload-icon-wrap">
+          <span class="upload-icon">📸</span>
+        </div>
+        <div class="upload-title">Drop Screenshot Here</div>
+        <div class="upload-sub">
+          Drag & drop or click to upload<br/>
+          Student's payment screenshot for verification
+        </div>
+        <div class="upload-formats">
+          <span class="fmt-tag">PNG</span>
+          <span class="fmt-tag">JPG</span>
+          <span class="fmt-tag">WEBP</span>
+          <span class="fmt-tag">GIF</span>
+        </div>
+      </div>
+
+      <div id="previewWrap" class="preview-wrap">
+        <img id="previewImg" class="preview-img" src="" alt="Preview" />
+        <div class="preview-overlay">
+          <div class="preview-meta" id="imgMeta">
+            SIZE: <span id="imgSize">—</span>
+          </div>
+          <div class="preview-meta" id="imgDim">
+            DIM: <span id="imgDimVal">—</span>
+          </div>
+        </div>
+      </div>
+
+      <input type="file" id="fileInput" accept="image/*" />
+
+      <button class="btn-scan" id="btnScan" disabled onclick="runAnalysis()">
+        <div class="btn-inner">
+          <span>🔍</span>
+          <span>ANALYZE SCREENSHOT</span>
+        </div>
+      </button>
+
+      <div class="error-box" id="errorBox">
+        <strong>⚠ Analysis Error</strong>
+        <span id="errorMsg"></span>
+      </div>
+    </div>
+
+    <!-- INSTRUCTIONS PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-icon">ℹ️</span>
+        <span class="panel-title">How It Works</span>
+      </div>
+
+      <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">1</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Student Shows Screenshot</div>
+            <div style="font-size:11px;color:var(--text-dim);line-height:1.6;">Student displays their payment confirmation on their phone.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">2</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Cashier Uploads Screenshot</div>
+            <div style="font-size:11px;color:var(--text-dim);line-height:1.6;">Take a photo or screenshot of what the student is showing you, then upload it here.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">3</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">AI Analyzes Instantly</div>
+            <div style="font-size:11px;color:var(--text-dim);line-height:1.6;">Claude AI scans for tampering, inconsistencies, and visual manipulation.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;align-items:flex-start;">
+          <div style="width:32px;height:32px;border-radius:8px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">4</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Clear Verdict Shown</div>
+            <div style="font-size:11px;color:var(--text-dim);line-height:1.6;">Get an instant AUTHENTIC / SUSPICIOUS / FAKE result with detailed reasoning.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;padding:14px;background:rgba(255,184,0,0.06);border:1px solid rgba(255,184,0,0.2);border-radius:8px;">
+          <div style="font-size:10px;font-family:var(--font-mono);color:var(--warn);letter-spacing:1px;margin-bottom:6px;">⚠ WHAT AI CHECKS</div>
+          <div style="font-size:11px;color:#b89060;line-height:1.7;">
+            ✦ Font inconsistencies & pixel artifacts<br/>
+            ✦ Amount field manipulation<br/>
+            ✦ Timestamp anomalies<br/>
+            ✦ Transaction ID format validity<br/>
+            ✦ UI element authenticity<br/>
+            ✦ Shadow & compression artifacts<br/>
+            ✦ Screenshot composition integrity<br/>
+            ✦ Payment app UI authenticity
+          </div>
+        </div>
+
+        <div style="padding:12px;background:rgba(0,255,157,0.04);border:1px solid rgba(0,255,157,0.15);border-radius:8px;">
+          <div style="font-size:10px;font-family:var(--font-mono);color:var(--accent3);letter-spacing:1px;margin-bottom:4px;">🔒 PRIVACY</div>
+          <div style="font-size:11px;color:#5a9a7a;line-height:1.5;">Screenshots are sent to AI for analysis only. No data is stored.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULT PANEL (full width) -->
+    <div class="panel result-panel" id="resultPanel">
+      <div class="panel-header">
+        <span class="panel-icon">📊</span>
+        <span class="panel-title">Analysis Results</span>
+      </div>
+
+      <!-- Verdict Display -->
+      <div class="verdict-display" id="verdictDisplay">
+        <div class="verdict-bg-glow" id="verdictGlow"></div>
+        <div class="verdict-badge" id="verdictBadge">
+          <span class="verdict-icon" id="verdictIcon">—</span>
+          <span id="verdictText">ANALYZING...</span>
+        </div>
+        <div class="confidence-row">
+          <span class="conf-label">CONFIDENCE</span>
+          <div class="conf-bar-wrap">
+            <div class="conf-bar" id="confBar" style="width:0%"></div>
+          </div>
+          <span class="conf-value" id="confValue">0%</span>
+        </div>
+      </div>
+
+      <!-- Extracted Info -->
+      <div class="info-strip" id="infoStrip"></div>
+
+      <!-- Analysis Grid -->
+      <div class="analysis-grid" id="analysisGrid"></div>
+
+      <!-- Findings -->
+      <div class="findings-section" id="findingsSection">
+        <div class="section-title">Detailed Findings</div>
+        <div class="flags-list" id="flagsList"></div>
+      </div>
+
+      <!-- Summary -->
+      <div class="summary-box" id="summaryBox"></div>
+
+      <!-- Reset -->
+      <button class="btn-reset" onclick="resetAll()">↩ SCAN ANOTHER SCREENSHOT</button>
+
+      <div class="powered-bar">POWERED BY <em>CLAUDE AI VISION</em> — UNIVERSITY CAFÉ SECURITY SYSTEM</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────
+const API_URL = "https://api.anthropic.com/v1/messages";
+const MODEL   = "claude-sonnet-4-20250514";
+
+// ─── DOM Refs ─────────────────────────────────────────────────
+const fileInput      = document.getElementById('fileInput');
+const uploadZone     = document.getElementById('uploadZone');
+const previewWrap    = document.getElementById('previewWrap');
+const previewImg     = document.getElementById('previewImg');
+const imgSizeEl      = document.getElementById('imgSize');
+const imgDimValEl    = document.getElementById('imgDimVal');
+const btnScan        = document.getElementById('btnScan');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const resultPanel    = document.getElementById('resultPanel');
+const errorBox       = document.getElementById('errorBox');
+const errorMsg       = document.getElementById('errorMsg');
+
+let currentBase64 = null;
+let currentMime   = null;
+
+// ─── File Upload Handling ──────────────────────────────────────
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) handleFile(file);
+});
+
+uploadZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  uploadZone.classList.add('dragover');
+});
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) handleFile(file);
+});
+
+function handleFile(file) {
+  errorBox.style.display = 'none';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const dataUrl = ev.target.result;
+    currentMime   = file.type || 'image/jpeg';
+    currentBase64 = dataUrl.split(',')[1];
+
+    // Preview
+    previewImg.src = dataUrl;
+    previewWrap.style.display = 'block';
+    uploadZone.style.display  = 'none';
+
+    // Metadata
+    imgSizeEl.textContent = (file.size / 1024).toFixed(1) + ' KB';
+
+    const img = new Image();
+    img.onload = () => {
+      imgDimValEl.textContent = img.naturalWidth + '×' + img.naturalHeight;
+    };
+    img.src = dataUrl;
+
+    btnScan.disabled = false;
+    resultPanel.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Loading Steps Animator ────────────────────────────────────
+function animateSteps() {
+  const steps = ['step1','step2','step3','step4','step5'];
+  let i = 0;
+  steps.forEach(s => {
+    document.getElementById(s).className = 'step-item';
+  });
+  const interval = setInterval(() => {
+    if (i > 0) document.getElementById(steps[i-1]).className = 'step-item done';
+    if (i < steps.length) {
+      document.getElementById(steps[i]).className = 'step-item active';
+      i++;
+    } else {
+      clearInterval(interval);
+    }
+  }, 800);
+  return interval;
+}
+
+// ─── Main Analysis ─────────────────────────────────────────────
+async function runAnalysis() {
+  if (!currentBase64) return;
+
+  btnScan.disabled = true;
+  errorBox.style.display = 'none';
+  resultPanel.style.display = 'none';
+  loadingOverlay.classList.add('active');
+
+  const stepInterval = animateSteps();
+
+  const prompt = `You are an expert forensic payment screenshot analyst for a university café security system. Analyze this payment screenshot that a student is showing to claim they've paid.
+
+Your job is to determine if this payment screenshot is AUTHENTIC, SUSPICIOUS, or FAKE.
+
+Perform a thorough forensic analysis examining:
+1. **Visual Integrity**: Pixel artifacts, compression anomalies, signs of editing (unusual JPEG artifacts, inconsistent noise patterns)
+2. **Text Analysis**: Font consistency, alignment, spacing irregularities, pasted-in text vs rendered text
+3. **UI Authenticity**: Does the interface match the claimed payment app? Are UI elements correctly rendered?
+4. **Amount Field**: Any signs of the amount being altered, overlaid, or inconsistent with surrounding elements
+5. **Transaction ID**: Format validity, consistency with payment provider patterns
+6. **Timestamp**: Date/time plausibility and consistency
+7. **Visual Composition**: Shadows, lighting, screen reflections that indicate a real phone screen vs a fabricated image
+8. **Metadata Signals**: Image quality, aspect ratio fitting payment apps
+9. **Payment Provider**: Which app/bank is this from? Does it match expected design patterns?
+
+Respond ONLY with a valid JSON object in this exact format:
+{
+  "verdict": "AUTHENTIC" | "SUSPICIOUS" | "FAKE",
+  "confidence": <number 0-100>,
+  "payment_app": "<detected app name or 'Unknown'>",
+  "amount": "<extracted amount or 'Not visible'>",
+  "transaction_id": "<extracted ID or 'Not visible'>",
+  "timestamp": "<extracted date/time or 'Not visible'>",
+  "recipient": "<extracted recipient/merchant or 'Not visible'>",
+  "checks": [
+    { "name": "Visual Integrity", "status": "PASS" | "WARN" | "FAIL", "detail": "<brief finding>" },
+    { "name": "Text Consistency", "status": "PASS" | "WARN" | "FAIL", "detail": "<brief finding>" },
+    { "name": "UI Authenticity", "status": "PASS" | "WARN" | "FAIL", "detail": "<brief finding>" },
+    { "name": "Amount Field", "status": "PASS" | "WARN" | "FAIL", "detail": "<brief finding>" },
+    { "name": "Transaction ID", "status": "PASS" | "WARN" | "FAIL", "detail": "<brief finding>" },
+    { "name": "Timestamp", "status": "PASS" | "WARN" | "FAIL", "detail": "<brief finding>" }
+  ],
+  "red_flags": [
+    { "severity": "high" | "medium" | "low", "title": "<short title>", "detail": "<explanation>" }
+  ],
+  "green_flags": [
+    { "title": "<short title>", "detail": "<explanation>" }
+  ],
+  "summary": "<2-3 sentence professional cashier-facing summary of the finding and recommendation>",
+  "cashier_action": "<ACCEPT | REQUEST_VERIFICATION | REJECT>"
+}
+
+Be thorough but decisive. If this is clearly a real screenshot of a payment app with no signs of tampering, say AUTHENTIC. If there are serious signs of editing or fabrication, say FAKE. If uncertain, say SUSPICIOUS and explain why.`;
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: currentMime, data: currentBase64 }
+            },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    clearInterval(stepInterval);
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || `API error ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rawText = data.content.map(b => b.text || '').join('');
+
+    // Parse JSON from response
+    let result;
+    try {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      result = JSON.parse(jsonMatch ? jsonMatch[0] : rawText);
+    } catch {
+      throw new Error('Could not parse AI response. Please try again.');
+    }
+
+    loadingOverlay.classList.remove('active');
+    renderResult(result);
+
+  } catch(err) {
+    clearInterval(stepInterval);
+    loadingOverlay.classList.remove('active');
+    errorBox.style.display = 'block';
+    errorMsg.textContent = err.message;
+    btnScan.disabled = false;
+  }
+}
+
+// ─── Render Result ─────────────────────────────────────────────
+function renderResult(r) {
+  resultPanel.style.display = 'block';
+  resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const verdict = (r.verdict || 'SUSPICIOUS').toUpperCase();
+  const confidence = Math.max(0, Math.min(100, r.confidence || 50));
+
+  // Verdict badge
+  const badge   = document.getElementById('verdictBadge');
+  const icon    = document.getElementById('verdictIcon');
+  const text    = document.getElementById('verdictText');
+  const glow    = document.getElementById('verdictGlow');
+  const confBar = document.getElementById('confBar');
+  const confVal = document.getElementById('confValue');
+
+  badge.className = 'verdict-badge ' + verdict.toLowerCase();
+  confBar.className = 'conf-bar ' + verdict.toLowerCase();
+  confVal.className = 'conf-value ' + verdict.toLowerCase();
+
+  if (verdict === 'AUTHENTIC') {
+    icon.textContent = '✅';
+    text.textContent = 'AUTHENTIC';
+    glow.style.background = 'radial-gradient(circle,rgba(0,255,157,0.15),transparent)';
+  } else if (verdict === 'FAKE') {
+    icon.textContent = '❌';
+    text.textContent = 'LIKELY FAKE';
+    glow.style.background = 'radial-gradient(circle,rgba(255,61,113,0.15),transparent)';
+  } else {
+    icon.textContent = '⚠️';
+    text.textContent = 'SUSPICIOUS';
+    glow.style.background = 'radial-gradient(circle,rgba(255,184,0,0.12),transparent)';
+  }
+
+  // Animate confidence bar
+  setTimeout(() => {
+    confBar.style.width = confidence + '%';
+    confVal.textContent = confidence + '%';
+  }, 100);
+
+  // Info strip
+  const infoStrip = document.getElementById('infoStrip');
+  const infos = [
+    { label: 'APP', val: r.payment_app || '—' },
+    { label: 'AMOUNT', val: r.amount || '—' },
+    { label: 'TXN ID', val: r.transaction_id || '—' },
+    { label: 'TIME', val: r.timestamp || '—' },
+    { label: 'TO', val: r.recipient || '—' },
+    { label: 'ACTION', val: r.cashier_action || '—' }
+  ];
+  infoStrip.innerHTML = infos.map(i =>
+    `<div class="info-item">${i.label}: <span>${esc(i.val)}</span></div>`
+  ).join('');
+
+  // Analysis grid
+  const grid = document.getElementById('analysisGrid');
+  grid.innerHTML = (r.checks || []).map(c => {
+    const cls = c.status === 'PASS' ? 'dot-ok' : c.status === 'FAIL' ? 'dot-bad' : 'dot-warn';
+    const icon = c.status === 'PASS' ? '✓' : c.status === 'FAIL' ? '✕' : '!';
+    return `<div class="analysis-cell">
+      <div class="cell-label">${esc(c.name)}</div>
+      <div class="cell-value cell-status">
+        <div class="cell-dot ${cls}"></div>
+        <span>${esc(c.detail || c.status)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Flags
+  const flagsList = document.getElementById('flagsList');
+  let flagsHTML = '';
+
+  (r.red_flags || []).forEach(f => {
+    const cls = f.severity === 'high' ? 'red' : f.severity === 'medium' ? 'yellow' : 'yellow';
+    const ico = f.severity === 'high' ? '🔴' : '🟡';
+    flagsHTML += `<div class="flag-item ${cls}">
+      <span class="flag-icon">${ico}</span>
+      <div class="flag-text">
+        <span class="flag-label">${esc(f.title)}</span>
+        ${esc(f.detail)}
+      </div>
+    </div>`;
+  });
+
+  (r.green_flags || []).forEach(f => {
+    flagsHTML += `<div class="flag-item green">
+      <span class="flag-icon">🟢</span>
+      <div class="flag-text">
+        <span class="flag-label">${esc(f.title)}</span>
+        ${esc(f.detail)}
+      </div>
+    </div>`;
+  });
+
+  if (!flagsHTML) {
+    flagsHTML = '<div class="flag-item" style="border-color:var(--border);color:var(--text-dim);">No specific flags identified.</div>';
+  }
+  flagsList.innerHTML = flagsHTML;
+
+  // Summary
+  const actionColor = r.cashier_action === 'ACCEPT' ? 'var(--accent3)' :
+                      r.cashier_action === 'REJECT' ? 'var(--accent2)' : 'var(--warn)';
+  document.getElementById('summaryBox').innerHTML =
+    `<strong style="color:${actionColor}">CASHIER ACTION: ${esc(r.cashier_action || '—')}</strong>\n\n` +
+    esc(r.summary || 'Analysis complete.');
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function resetAll() {
+  currentBase64 = null;
+  currentMime   = null;
+  previewWrap.style.display = 'none';
+  uploadZone.style.display  = 'flex';
+  resultPanel.style.display = 'none';
+  errorBox.style.display    = 'none';
+  btnScan.disabled = true;
+  fileInput.value  = '';
+  document.getElementById('confBar').style.width = '0%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
